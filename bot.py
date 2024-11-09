@@ -25,6 +25,25 @@ lang_header = ['en-US,en;q=0.5', 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7']
 encoding_header = ['gzip, deflate', 'gzip, deflate, br']
 controle_header = ['no-cache', 'max-age=604800']
 
+# Đọc danh sách proxy từ file
+def load_proxies(file_path):
+    """Đọc proxy từ file"""
+    proxies = []
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as file:
+            proxies = file.readlines()
+        proxies = [proxy.strip() for proxy in proxies]  # Loại bỏ dấu xuống dòng
+    else:
+        print(f"Không tìm thấy file proxy: {file_path}")
+    return proxies
+
+# Lấy proxy ngẫu nhiên từ danh sách
+def get_random_proxy(proxies):
+    """Chọn proxy ngẫu nhiên"""
+    if proxies:
+        return random.choice(proxies)
+    return None
+
 def random_header():
     """Tạo header ngẫu nhiên."""
     return {
